@@ -19,13 +19,68 @@ document.addEventListener("DOMContentLoaded", () => {
         activityCard.className = "activity-card";
 
         const spotsLeft = details.max_participants - details.participants.length;
+        const participantItems = details.participants
+          .map((participant) => `<li><span class="activity-card__participant-email">${participant}</span><button class="activity-card__delete-btn" data-activity="${name}" data-email="${participant}" title="Remove participant">×</button></li>`)
+          .join("");
 
         activityCard.innerHTML = `
-          <h4>${name}</h4>
-          <p>${details.description}</p>
-          <p><strong>Schedule:</strong> ${details.schedule}</p>
-          <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="activity-card__header">
+            <div>
+              <h4>${name}</h4>
+              <p class="activity-card__schedule">${details.schedule}</p>
+            </div>
+            <span class="activity-card__badge">${spotsLeft} spots left</span>
+          </div>
+          <p class="activity-card__description">${details.description}</p>
+          <div class="activity-card__participants">
+            <div class="activity-card__participants-heading">
+              <strong>Participants</strong>
+              <span>${details.participants.length} signed up</span>
+            </div>
+            <ul class="activity-card__participants-list">
+              ${participantItems}
+            </ul>
+          </div>
         `;
+
+        // Add event listeners for delete buttons
+        activityCard.querySelectorAll(".activity-card__delete-btn").forEach((btn) => {
+          btn.addEventListener("click", async (e) => {
+            e.preventDefault();
+            const activity = btn.getAttribute("data-activity");
+            const email = btn.getAttribute("data-email");
+
+            try {
+              const response = await fetch(
+                `/activities/${encodeURIComponent(activity)}/signup?email=${encodeURIComponent(email)}`,
+                { method: "DELETE" }
+              );
+
+              if (response.ok) {
+                // Refresh activities after deletion
+                fetchActivities();
+                // Show success message
+                const msgDiv = document.getElementById("message");
+                msgDiv.textContent = `Removed ${email} from ${activity}`;
+                msgDiv.className = "success";
+                msgDiv.classList.remove("hidden");
+                setTimeout(() => msgDiv.classList.add("hidden"), 5000);
+              } else {
+                const result = await response.json();
+                const msgDiv = document.getElementById("message");
+                msgDiv.textContent = result.detail || "Failed to remove participant";
+                msgDiv.className = "error";
+                msgDiv.classList.remove("hidden");
+              }
+            } catch (error) {
+              console.error("Error removing participant:", error);
+              const msgDiv = document.getElementById("message");
+              msgDiv.textContent = "Failed to remove participant";
+              msgDiv.className = "error";
+              msgDiv.classList.remove("hidden");
+            }
+          });
+        });
 
         activitiesList.appendChild(activityCard);
 
@@ -62,6 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
